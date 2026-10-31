@@ -1,0 +1,361 @@
+import React, { useState, useEffect } from 'react';
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip
+} from 'recharts';
+import {
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  PieChart as PieIcon,
+  LayoutDashboard,
+  ArrowUpRight,
+  ArrowDownRight,
+  Calendar,
+  Bell,
+  User,
+  LogOut,
+  List
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast, { Toaster } from 'react-hot-toast';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import api from './api';
+import Login from './components/Login';
+import Signup from './components/Signup';
+
+const COLORS = ['#6366f1', '#f43f5e', '#eab308', '#22c55e', '#a855f7', '#ec4899', '#06b6d4'];
+
+function App() {
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [authView, setAuthView] = useState('login'); // 'login' | 'signup'
+  const [balance, setBalance] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const [expenses, setExpenses] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('balance');
+
+  const ACCOUNT_ID = 1; // Idealmente, isso viria de uma lista de contas do usuário
+  const YEAR = 2026;
+  const MONTH = 10;
+
+  useEffect(() => {
+    if (token) {
+      fetchData();
+    }
+  }, [token]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [balanceRes, summaryRes, expensesRes] = await Promise.all([
+        api.get(`/accounts/${ACCOUNT_ID}/balance`),
+        api.get(`/summary/${YEAR}/${MONTH}`),
+        api.get(`/expenses/${YEAR}/${MONTH}`)
+      ]);
+      setBalance(balanceRes.data);
+      setSummary(summaryRes.data);
+      setExpenses(expensesRes.data);
+    } catch (err) {
+      setError("Erro ao carregar dados do servidor. Verifique se você está autenticado!");
+      console.error("API Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    setToken(localStorage.getItem('token'));
+  };
+
+  const handleSignupSuccess = () => {
+    setAuthView('login');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    toast.success('Até logo!');
+  };
+
+  const getStatusStyles = (value) => {
+    if (value > 0) return {
+      text: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-100',
+      dot: 'bg-emerald-500',
+      label: 'Positivo'
+    };
+    if (value < 0) return {
+      text: 'text-rose-600',
+      bg: 'bg-rose-50',
+      border: 'border-rose-100',
+      dot: 'bg-rose-500',
+      label: 'Negativo'
+    };
+    return {
+      text: 'text-amber-600',
+      bg: 'bg-amber-50',
+      border: 'border-amber-100',
+      dot: 'bg-amber-500',
+      label: 'Neutro'
+    };
+  };
+
+  if (!token) {
+    return (
+      <>
+        <Toaster />
+        {authView === 'login' ? (
+          <Login onLoginSuccess={handleLoginSuccess} onSwitchToSignup={() => setAuthView('signup')} />
+        ) : (
+          <Signup onSignupSuccess={handleSignupSuccess} onSwitchToLogin={() => setAuthView('login')} />
+        )}
+      </>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-medium animate-pulse">Carregando seu painel...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-red-100 text-center">
+          <div className="bg-red-50 text-red-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Bell className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Erro de Dados</h2>
+          <p className="text-slate-500 mb-6">{error}</p>
+          <div className="flex gap-3">
+            <button onClick={fetchData} className="flex-1 py-3 bg-slate-200 text-slate-800 rounded-xl font-semibold hover:bg-slate-300 transition-all">
+              Tentar Novamente
+            </button>
+            <button onClick={handleLogout} className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-semibold hover:bg-rose-700 transition-all">
+              Sair
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
+      <Toaster />
+
+      <aside className="w-72 bg-white border-r border-slate-200 flex flex-col p-8">
+        <div className="flex items-center gap-3 mb-12 px-2">
+          <div className="w-11 h-11 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+            <Wallet className="w-6 h-6" />
+          </div>
+          <span className="text-2xl font-black tracking-tight text-slate-800">Fin<span className="text-indigo-600">Flow</span></span>
+        </div>
+
+        <nav className="flex-1 space-y-2">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 px-4">Menu Principal</p>
+          <button
+            onClick={() => setActiveTab('balance')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold transition-all ${activeTab === 'balance' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
+          >
+            <LayoutDashboard className="w-5 h-5" /> Saldo Atual
+          </button>
+          <button
+            onClick={() => setActiveTab('flow')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold transition-all ${activeTab === 'flow' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
+          >
+            <List className="w-5 h-5" /> Entradas e Saídas
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold transition-all ${activeTab === 'analytics' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
+          >
+            <PieIcon className="w-5 h-5" /> Distribuição
+          </button>
+        </nav>
+
+        <div className="mt-auto p-4 bg-slate-50 rounded-3xl border border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden">
+              <User className="w-6 h-6 text-slate-500" />
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-bold text-slate-800 truncate">Usuário Logado</p>
+              <p className="text-xs text-slate-400 truncate">Plano Premium</p>
+            </div>
+            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main className="flex-1 p-6 md:p-12 overflow-y-auto h-screen">
+        <header className="flex justify-between items-center mb-10">
+          <div className="flex items-center gap-6">
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
+                {activeTab === 'balance' && 'Meu Saldo'}
+                {activeTab === 'flow' && 'Fluxo Financeiro'}
+                {activeTab === 'analytics' && 'Análise de Gastos'}
+              </h1>
+              <div className="flex items-center gap-2 text-slate-500 font-medium">
+                <Calendar className="w-4 h-4" />
+                <span>{format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })}</span>
+              </div>
+            </div>
+          </div>
+          <button className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center gap-2">
+            <ArrowUpRight className="w-5 h-5" /> Nova Transação
+          </button>
+        </header>
+
+        <AnimatePresence mode="wait">
+          {activeTab === 'balance' && (
+            <motion.div
+              key="balance"
+              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-8"
+            >
+              <div className="col-span-1 md:col-span-3 bg-white p-10 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
+                <div className={`absolute top-0 left-0 w-2 h-full ${getStatusStyles(balance?.balance).dot}`}></div>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Saldo Atual Consolidado</p>
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                  <p className={`text-6xl font-black ${getStatusStyles(balance?.balance).text}`}>
+                    R$ {(balance?.balance ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                  <div className={`px-4 py-2 rounded-full text-xs font-bold border ${getStatusStyles(balance?.balance).bg} ${getStatusStyles(balance?.balance).text} ${getStatusStyles(balance?.balance).border}`}>
+                    Status: {getStatusStyles(balance?.balance).label}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'flow' && (
+            <motion.div
+              key="flow"
+              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+              className="grid grid-cols-1 md:grid-cols-2 gap-8"
+            >
+              <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><TrendingUp className="w-5 h-5" /></div>
+                  <h2 className="text-xl font-bold text-slate-800">Total Entradas</h2>
+                </div>
+                <p className="text-4xl font-black text-emerald-600">R$ {(summary?.total_income ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-rose-50 text-rose-600 rounded-lg"><TrendingDown className="w-5 h-5" /></div>
+                  <h2 className="text-xl font-bold text-slate-800">Total Saídas</h2>
+                </div>
+                <p className="text-4xl font-black text-rose-600">R$ {(summary?.total_expense ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="col-span-1 md:col-span-2 bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-slate-800">Balanço Líquido</h2>
+                  <div className={`px-4 py-1 rounded-full text-xs font-bold border ${getStatusStyles(summary?.net_balance).bg} ${getStatusStyles(summary?.net_balance).text} ${getStatusStyles(summary?.net_balance).border}`}>
+                    {getStatusStyles(summary?.net_balance).label}
+                  </div>
+                </div>
+                <p className={`text-5xl font-black ${getStatusStyles(summary?.net_balance).text}`}>
+                  R$ {(summary?.net_balance ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <motion.div
+              key="analytics"
+              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+              className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+            >
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 flex flex-col items-center">
+                <h2 className="text-xl font-bold text-slate-800 mb-8 w-full text-left">Distribuição de Gastos</h2>
+                <div className="w-full h-64 relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={expenses} dataKey="total" nameKey="category" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
+                        {(expenses || []).map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />)}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Total</p>
+                    <p className="text-lg font-black text-slate-800">R$ {(summary?.total_expense ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 w-full mt-8">
+                  {(expenses || []).slice(0, 6).map((exp, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                      <span className="text-xs font-medium text-slate-500 truncate">{exp.category}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
+                <h2 className="text-xl font-bold text-slate-800 mb-6">Detalhamento de Despesas</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="text-slate-400 text-[10px] uppercase tracking-widest border-b border-slate-100">
+                        <th className="pb-4 font-bold">Categoria</th>
+                        <th className="pb-4 font-bold text-center">Distribuição</th>
+                        <th className="pb-4 font-bold text-right">Valor Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {(expenses || []).map((exp, index) => {
+                        const percentage = (exp.total / (summary?.total_expense || 1)) * 100;
+                        return (
+                          <tr key={index} className="group hover:bg-slate-50 transition-all">
+                            <td className="py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-all">
+                                  <PieIcon className="w-4 h-4" />
+                                </div>
+                                <span className="text-sm font-bold text-slate-700">{exp.category}</span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                  <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
+                                </div>
+                                <span className="text-xs font-bold text-slate-400">{percentage.toFixed(1)}%</span>
+                              </div>
+                            </td>
+                            <td className="py-4 text-right">
+                              <span className="text-sm font-black text-rose-500">- R$ {(exp.total ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+    </div>
+  );
+}
+
+export default App;
